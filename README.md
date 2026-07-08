@@ -571,7 +571,7 @@ Controller xử lý tuần tự:
 │  └─→ Inject totalQuality vào res.locals (hiển thị badge)│
 └─────────────────────────────────────────────────────────┘
                          │
-                         ▼
+                         @
 ┌─────────────────────────────────────────────────────────┐
 │                  ADD TO CART                            │
 │                                                         │
@@ -583,7 +583,7 @@ Controller xử lý tuần tự:
 │  └─→ Cart.updateOne() → Flash success                   │
 └─────────────────────────────────────────────────────────┘
                          │
-                         ▼
+                         @
 ┌─────────────────────────────────────────────────────────┐
 │                  CHECKOUT FLOW                          │
 │                                                         │
@@ -660,7 +660,7 @@ Ví dụ: "products_view", "products_edit", "products_delete",
 │  └─→ Bulk update Role.updateOne() cho từng role      │
 └──────────────────────────────────────────────────────┘
                          │
-                         ▼
+                         @
 ┌──────────────────────────────────────────────────────┐
 │              RUNTIME PERMISSION CHECK                │
 │                                                      │
