@@ -22,10 +22,11 @@ Dự án được làm trong quá trình tự học, có tham khảo cấu trúc
 - [Application Workflows](#application-workflows)
   - [Authentication Flow](#1-authentication-flow)
   - [Product Management Flow](#2-product-management-flow)
-  - [Shopping Cart & Checkout Flow](#3-shopping-cart--checkout-flow)
-  - [User Password Recovery Flow](#4-user-password-recovery-flow)
-  - [Role-Based Access Control (RBAC) Flow](#5-role-based-access-control-rbac-flow)
-  - [Image Upload Flow](#6-image-upload-flow)
+  - [Quản lý danh mục (Category) & Cây danh mục](#3-quản-lý-danh-mục-category--cây-danh-mục)
+  - [Shopping Cart & Checkout Flow](#4-shopping-cart--checkout-flow)
+  - [User Password Recovery Flow](#5-user-password-recovery-flow)
+  - [Role-Based Access Control (RBAC) Flow](#6-role-based-access-control-rbac-flow)
+  - [Image Upload Flow](#7-image-upload-flow)
 - [API Routes Reference](#api-routes-reference)
 - [Middleware Pipeline](#middleware-pipeline)
 - [Environment Variables](#environment-variables)
@@ -96,7 +97,7 @@ Dự án được làm trong quá trình tự học, có tham khảo cấu trúc
 
 ---
 
-## System Architecture
+  ## System Architecture
 
 ```
 ┌──────────────────────────────────────────────────────────┐
@@ -295,17 +296,17 @@ Dự án được làm trong quá trình tự học, có tham khảo cấu trúc
 
 ```
 Product-management/
-├── index.js                  # Entry point — Express app setup
+├── index.js                  # Entry point — khởi tạo Express, kết nối DB, đăng ký route
 ├── package.json
-├── vercel.json               # Vercel serverless deployment config
-├── .env                      # Environment variables (không commit)
+├── vercel.json                # Cấu hình deploy Vercel serverless
+├── .env
 ├── .gitignore
 │
 ├── config/
-│   ├── database.js           # Mongoose connection
-│   └── system.js             # System constants (prefixAdmin = "/admin")
+│   ├── database.js            # Kết nối MongoDB (mongoose.connect)
+│   └── system.js              # Hằng số prefixAdmin = "/admin"
 │
-├── models/                   # Mongoose schemas
+├── models/
 │   ├── product.model.js
 │   ├── product-category.model.js
 │   ├── blog.model.js
@@ -320,7 +321,7 @@ Product-management/
 │
 ├── routes/
 │   ├── admin/
-│   │   ├── index.route.js    # Mount tất cả admin routes + auth middleware
+│   │   ├── index.route.js          # Mount toàn bộ route admin, gắn Auth.requireAuth
 │   │   ├── auth.route.js
 │   │   ├── dashboard.route.js
 │   │   ├── product.route.js
@@ -335,7 +336,7 @@ Product-management/
 │   │   ├── replacePassword.route.js
 │   │   └── settings.route.js
 │   └── client/
-│       ├── index.route.js    # Mount tất cả client routes + global middlewares
+│       ├── index.route.js          # Mount toàn bộ route client + middleware toàn cục
 │       ├── home.route.js
 │       ├── product.route.js
 │       ├── blog.route.js
@@ -351,9 +352,11 @@ Product-management/
 │   │   ├── auth.controller.js
 │   │   ├── dashboard.controller.js
 │   │   ├── product.controller.js
-│   │   ├── product-category.controller.js
+│   │   ├── product-category.controller.js  # index, trash, create, createPost, deleted,
+│   │   │                                   # changeStatus, changeMulti, recovery,
+│   │   │                                   # permanentDelete, detail, edit, editPatch
 │   │   ├── blogs.controller.js
-│   │   ├── blogs-category.controller.js
+│   │   ├── blogs-category.controller.js    # cùng 12 action như product-category
 │   │   ├── accounts.controller.js
 │   │   ├── role.controller.js
 │   │   ├── users.controller.js
@@ -363,8 +366,8 @@ Product-management/
 │   │   └── settings.controller.js
 │   └── client/
 │       ├── home.controller.js
-│       ├── product.controller.js
-│       ├── blog.controller.js
+│       ├── product.controller.js           # index, detail, slugCategory (lọc theo cây danh mục)
+│       ├── blog.controller.js               # cùng pattern với product.controller
 │       ├── cart.controller.js
 │       ├── checkout.controller.js
 │       ├── user.controller.js
@@ -374,81 +377,118 @@ Product-management/
 │
 ├── middlewares/
 │   ├── admin/
-│   │   ├── auth.middleware.js            # Token-based auth guard
-│   │   └── uploadCloudinary.middleware.js # Multer → Cloudinary stream upload
+│   │   ├── auth.middleware.js              # Token-based auth guard, inject role
+│   │   └── uploadCloudinary.middleware.js  # Multer buffer → stream → Cloudinary
 │   └── client/
-│       ├── auth.middleware.js            # Client token guard
-│       ├── carts.middleware.js           # Tự tạo cart cookie cho mọi request
-│       ├── user.middleware.js            # Inject user info vào res.locals
-│       ├── categoryMiddleware.middleware.js # Inject danh mục sản phẩm vào layout
-│       └── settings.middleware.js        # Inject cài đặt website vào res.locals
+│       ├── auth.middleware.js              # Client token guard
+│       ├── carts.middleware.js             # Tự tạo cart cookie cho mọi request
+│       ├── user.middleware.js              # Inject user info vào res.locals
+│       ├── categoryMiddleware.middleware.js # Build cây danh mục sản phẩm + blog cho layout
+│       └── settings.middleware.js          # Inject cài đặt website vào res.locals
 │
 ├── validates/
 │   ├── admin/
 │   │   ├── auth.validate.js
 │   │   ├── accounts.validate.js
 │   │   ├── product.validate.js
-│   │   └── product-category.validate.js
+│   │   └── product-category.validate.js    # Chỉ validate field "title" khi tạo danh mục
 │   └── client/
 │       ├── user.validate.js
 │       ├── slug.validate.js
 │       └── quantity.validate.js
 │
 ├── helper/
-│   ├── generate.js           # Random string/number generator
-│   ├── sendMail.js           # Nodemailer Gmail wrapper
-│   ├── newPrice.js           # Tính giá sau discount
-│   ├── pagination.js         # Pagination calculator
-│   ├── filterStatus.js       # Status filter builder
-│   ├── filterSort.js         # Sort query builder
-│   ├── search.js             # Search regex builder
-│   ├── create-tree.js        # Build nested category tree
-│   ├── products-category.js  # Recursive sub-category fetcher
-│   ├── orderAndCart.js       # Merge guest cart vào user cart khi login
-│   ├── showDetailProducts.js # Enrich cart với product details
-│   ├── showCheckout.js       # Enrich order details
-│   ├── showBlogCreateAndEdit.js # Enrich danh sách với creator info
-│   ├── showBlogDateDetail.js # Format date cho blog detail
-│   └── checkPassword.js      # Password check utility
+│   ├── generate.js                # Random string/number generator (OTP, token)
+│   ├── sendMail.js                # Wrapper Nodemailer gửi Gmail SMTP
+│   ├── newPrice.js                # Tính giá sau giảm giá (newPrice, priceNewProduct)
+│   ├── pagination.js               # Tính skip/limit/totalPage từ query
+│   ├── filterStatus.js             # Xây điều kiện lọc theo status + data cho UI filter
+│   ├── filterSort.js               # Xây object sort từ query.sortkey/valuekey
+│   ├── search.js                   # Xây regex tìm kiếm từ query.keyword
+│   ├── create-tree.js              # Dựng cây lồng nhau trong bộ nhớ từ mảng phẳng (dùng cho hiển thị)
+│   ├── products-category.js        # Đệ quy lấy toàn bộ ID danh mục con (dùng cho lọc sản phẩm client)
+│   ├── orderAndCart.js             # Merge giỏ hàng guest vào tài khoản khi đăng nhập/đăng ký
+│   ├── showDetailProducts.js       # Enrich giỏ hàng/đơn hàng với thông tin sản phẩm đầy đủ
+│   ├── showCheckout.js             # Enrich chi tiết đơn hàng
+│   ├── showBlogCreateAndEdit.js    # Enrich danh sách admin với tên người tạo/sửa gần nhất
+│   ├── showBlogDateDetail.js       # Enrich trang chi tiết với tên người tạo + nửa sau lịch sử sửa
+│   └── checkPassword.js            # Regex kiểm tra độ mạnh mật khẩu
 │
 ├── views/
 │   ├── admin/
 │   │   ├── layouts/
-│   │   │   ├── default.pug   # Admin layout chính
-│   │   │   └── auth.pug      # Layout trang login
+│   │   │   ├── default.pug             # Layout chính (có sidebar, header)
+│   │   │   └── auth.pug                # Layout riêng cho trang login
 │   │   ├── partials/
 │   │   │   ├── header.pug
 │   │   │   └── sider.pug
-│   │   ├── mixins/           # Reusable Pug components
-│   │   │   ├── table.pug, pagination.pug, alert.pug
-│   │   │   ├── sortItem.pug, search.pug, filter-status.pug
-│   │   │   ├── select-tree.pug, form-change-multi.pug
-│   │   │   ├── helperRolesDetail.pug, alowPass.pug
-│   │   │   ├── limitItem.pug, moment.pug
+│   │   ├── mixins/                     # 11 mixin dùng lại nhiều nơi
+│   │   │   ├── table.pug               # Khung bảng dữ liệu chung
+│   │   │   ├── pagination.pug
+│   │   │   ├── alert.pug               # Hiển thị flash message
+│   │   │   ├── sortItem.pug            # Nút sort theo cột
+│   │   │   ├── search.pug
+│   │   │   ├── filter-status.pug
+│   │   │   ├── select-tree.pug         # Dropdown chọn danh mục dạng cây (thụt lề theo cấp)
+│   │   │   ├── form-change-multi.pug   # Form bulk action (checkbox + dropdown hành động)
+│   │   │   ├── helperRolesDetail.pug   # Hiển thị chi tiết quyền của 1 role
+│   │   │   ├── alowPass.pug            # Ẩn/hiện nút theo permission (dùng ở view)
+│   │   │   ├── limitItem.pug           # Dropdown chọn số item/trang
+│   │   │   └── moment.pug              # Format ngày giờ
 │   │   └── pages/
-│   │       └── [module]/     # index, create, edit, detail, trash per module
+│   │       ├── auth/login.pug
+│   │       ├── dashboard/index.pug
+│   │       ├── product/           index.pug, create.pug, edit.pug, detail.pug, trashCanProducts.pug
+│   │       ├── product-category/  index.pug, create.pug, edit.pug, detail.pug, trash.pug
+│   │       ├── blogs/             index.pug, create.pug, edit.pug, detail.pug, trash.pug
+│   │       ├── blogs-category/    index.pug, create.pug, edit.pug, detail.pug, trash.pug
+│   │       ├── accounts/          index.pug, create.pug, edit.pug, detail.pug
+│   │       ├── roles/             index.pug, create.pug, edit.pug, detail.pug, permission.pug
+│   │       ├── user/              index.pug, detail.pug
+│   │       ├── checkout/          index.pug, detail.pug
+│   │       ├── order/index.pug
+│   │       ├── myAccount/         index.pug, edit.pug
+│   │       ├── rePlacePassword/index.pug
+│   │       └── settings/general.pug
 │   └── client/
 │       ├── layouts/default.pug
 │       ├── partials/header.pug, footer.pug
 │       ├── mixins/
+│       │   ├── alert.pug, alowPass.pug, moment.pug
+│       │   ├── box-head.pug            # Tiêu đề khối trang chủ
+│       │   ├── product-item.pug        # Card hiển thị 1 sản phẩm
+│       │   ├── product-layout.pug      # Layout danh sách sản phẩm dạng lưới
+│       │   └── sub-menu.pug            # Menu danh mục dạng cây (đệ quy hiển thị)
 │       └── pages/
-│           └── [module]/
+│           ├── home/index.pug
+│           ├── products/  index.pug, detail.pug
+│           ├── blogs/     index.pug, detail.pug
+│           ├── cart/index.pug
+│           ├── checkout/  index.pug, success.pug
+│           ├── search/index.pug
+│           ├── history/index.pug
+│           ├── contact/index.pug
+│           ├── user/      login.pug, register.pug, info.pug, edit.pug,
+│           │              forgot-password.pug, otp-password.pug, reset-password.pug
+│           └── errors/404.pug
 │
 └── public/
     ├── admin/
     │   ├── css/style.css
     │   └── js/
-    │       ├── script.js       # Admin UI interactions (AJAX, multi-select)
-    │       ├── permission.js   # Permission matrix UI
-    │       ├── product.js      # Product form interactions
-    │       └── trash.js        # Trash restore/delete UI
+    │       ├── script.js              # Tương tác UI chung (AJAX, multi-select checkbox)
+    │       ├── permission.js          # Xử lý ma trận phân quyền (checkbox theo module)
+    │       ├── product.js             # Tương tác form sản phẩm (thêm ảnh preview, TinyMCE)
+    │       ├── trash.js               # Khôi phục/xóa vĩnh viễn trong thùng rác
+    │       └── my-tinymce-config.js   # Cấu hình TinyMCE dùng chung
     └── client/
         ├── css/style.css
-        ├── js/
-        │   ├── script.js
-        │   └── cart.js         # Cart AJAX interactions
-        └── image/
+        ├── image/user.png
+        └── js/
+            ├── script.js
+            └── cart.js                # AJAX thêm/sửa/xóa giỏ hàng không reload trang
 ```
+
 
 ---
 
@@ -558,7 +598,120 @@ Controller xử lý tuần tự:
 
 ---
 
-### 3. Shopping Cart & Checkout Flow
+### 3. Quản lý danh mục (Category) & Cây danh mục
+
+Danh mục sản phẩm (`product-category`) và danh mục blog (`blog-category`) dùng chung một cấu trúc: mỗi danh mục có `parent_id` trỏ tới danh mục cha (chuỗi rỗng `''` nếu là danh mục gốc). Dự án dùng 2 thuật toán khác nhau cho 2 mục đích khác nhau — một để **hiển thị** cây danh mục trong giao diện, một để **lọc dữ liệu** theo cây danh mục.
+
+#### Thuật toán 1 — Dựng cây để hiển thị (`helper/create-tree.js`)
+
+Nhận vào một mảng phẳng các danh mục đã lấy sẵn từ MongoDB (1 lần query `find()`), dựng thành cây lồng nhau hoàn toàn trong bộ nhớ, không query thêm:
+
+```js
+let cnt = 0;
+const createTree = (data, parent_id = '') => {
+  const tree = [];
+  data.forEach((item) => {
+    if (item.parent_id === parent_id) {
+      cnt++;
+      const newItem = item;
+      newItem.index = cnt;                      // đánh số thứ tự toàn cục
+      const children = createTree(data, item.id); // đệ quy tìm con của item này
+      if (children.length > 0) {
+        newItem.children = children;             // chỉ gắn children nếu có con
+      }
+      tree.push(newItem);
+    }
+  });
+  return tree;
+};
+```
+
+Cách hoạt động: với mỗi lần gọi, hàm duyệt toàn bộ mảng `data` để tìm những item có `parent_id` khớp với `parent_id` đang xét, sau đó gọi đệ quy chính hàm này cho từng item vừa tìm được (dùng `item.id` làm `parent_id` mới) để tìm cấp con tiếp theo. Độ phức tạp là O(n²) do mỗi cấp đệ quy duyệt lại toàn bộ mảng, nhưng vì số lượng danh mục trong dự án nhỏ nên không ảnh hưởng hiệu năng thực tế.
+
+Được gọi ở 3 nơi:
+- `product-category.controller.js` (`index`, `create`, `edit`) và tương tự ở `blogs-category.controller.js` — để hiển thị danh sách dạng cây (thụt lề theo cấp) và dropdown chọn danh mục cha khi tạo/sửa.
+- `categoryMiddleware.middleware.js` — chạy trên **mọi request phía client**, dựng cây danh mục sản phẩm và danh mục blog để hiển thị menu điều hướng (`sub-menu.pug` render đệ quy theo `children`).
+
+#### Thuật toán 2 — Lấy toàn bộ danh mục con để lọc dữ liệu (`helper/products-category.js`)
+
+Dùng khi khách xem sản phẩm theo 1 danh mục — cần lấy sản phẩm thuộc danh mục đó **và tất cả danh mục con của nó**, vì vậy cần biết toàn bộ ID danh mục con trước khi query Product:
+
+```js
+module.exports.getSubCategory = async (parentId) => {
+  const getSubCategory = async (parentId) => {
+    const subs = await ProductCategory.find({
+      parent_id: parentId,
+      status: 'active',
+      deleted: false,
+    });
+
+    let getSubAll = [...subs];
+    for (const sub of subs) {
+      const childs = await getSubCategory(sub.id);   // đệ quy — mỗi cấp là 1 query DB
+      getSubAll = getSubAll.concat(childs);
+    }
+
+    return getSubAll;
+  };
+
+  return await getSubCategory(parentId);
+};
+```
+
+Khác với thuật toán 1 (dựng cây từ dữ liệu đã có sẵn trong bộ nhớ), thuật toán này gọi **query MongoDB thật ở mỗi cấp đệ quy** — nếu cây danh mục sâu N cấp, sẽ tốn khoảng N lượt round-trip tới database. Hàm `getSubCategoryBlogs` trong cùng file làm việc tương tự nhưng cho `BlogCategory`.
+
+```
+[Client xem sản phẩm theo danh mục]
+GET /products/:slug_category
+  ├─→ ProductCategory.findOne({ slug, status: "active", deleted: false })
+  ├─→ helperGetSubCategory.getSubCategory(category.id)
+  │       → trả về toàn bộ danh mục con (đệ quy nhiều cấp)
+  ├─→ listSubCategoryId = danh sách id các danh mục con vừa lấy được
+  └─→ Product.find({
+        product_category_id: { $in: [category.id, ...listSubCategoryId] },
+        deleted: false,
+        status: "active",
+      }).sort({ position: "desc" })
+        → Xem danh mục cha sẽ thấy luôn sản phẩm của toàn bộ danh mục con
+```
+
+#### CRUD danh mục ở Admin
+
+`product-category.controller.js` và `blogs-category.controller.js` có cấu trúc giống hệt nhau, gồm 12 action:
+
+```
+GET    /admin/products-category                          → index (danh sách dạng cây, filter status + search)
+GET    /admin/products-category/trash                     → trash (danh sách đã xóa mềm)
+GET    /admin/products-category/create                    → create (form, kèm dropdown cây chọn danh mục cha)
+POST   /admin/products-category/create                    → createPost   [permission: products-category_create]
+DELETE /admin/products-category/deleted/:id                → deleted      [permission: products-category_delete]
+PATCH  /admin/products-category/change-status/:status/:id  → changeStatus [permission: products-category_edit]
+PATCH  /admin/products-category/change-multi                → changeMulti  [permission: products-category_edit]
+PATCH  /admin/products-category/trash/recovery/:id          → recovery     [permission: products-category_edit]
+DELETE /admin/products-category/trash/permanent-delete/:id  → permanentDelete [permission: products-category_delete]
+GET    /admin/products-category/detail/:id                  → detail (kèm tên danh mục cha)
+GET    /admin/products-category/edit/:id                    → edit (kèm cây danh mục để chọn cha mới)
+PATCH  /admin/products-category/edit/:id                    → editPatch    [permission: products-category_edit]
+```
+
+`changeMulti` xử lý 6 loại hành động khác nhau qua `req.body.type`, mỗi loại là một `switch case` riêng:
+
+```
+active / inactive          → đổi status hàng loạt, ghi updatedBy
+recovery-all                → khôi phục hàng loạt từ thùng rác
+delete-all                  → xóa mềm hàng loạt
+permanentlyDelete-all       → xóa vĩnh viễn hàng loạt (deleteMany thật)
+change-position             → đổi vị trí hiển thị hàng loạt:
+    req.body.ids là mảng chuỗi dạng "id-position" (ví dụ "64f...-3"),
+    tách từng chuỗi bằng split('-') để lấy lại id và position,
+    rồi update từng bản ghi một trong vòng lặp for
+```
+
+Khi tạo mới, nếu không truyền `position`, hệ thống tự đếm tổng số danh mục hiện có (`countDocuments()`) rồi +1 để gán vào cuối danh sách.
+
+---
+
+### 4. Shopping Cart & Checkout Flow
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -613,7 +766,7 @@ Controller xử lý tuần tự:
 
 ---
 
-### 4. User Password Recovery Flow
+### 5. User Password Recovery Flow
 
 ```
 [1] GET /user/password/forgot
@@ -640,7 +793,7 @@ Controller xử lý tuần tự:
 
 ---
 
-### 5. Role-Based Access Control (RBAC) Flow
+### 6. Role-Based Access Control (RBAC) Flow
 
 ```
 Permission string format: "{module}_{action}"
@@ -683,7 +836,7 @@ Ví dụ: "products_view", "products_edit", "products_delete",
 
 ---
 
-### 6. Image Upload Flow
+### 7. Image Upload Flow
 
 ```
 Admin Upload Ảnh (sản phẩm, blog, tài khoản, ...)
