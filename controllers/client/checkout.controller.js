@@ -25,27 +25,38 @@ module.exports.index = async (req, res) => {
 
 // [POST] /checkout/order
 module.exports.order = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
   try {
     const userInfo = req.body;
     const cartId = req.cookies.cart_id;
 
-    const cart = await Cart.findOne({ _id: cartId });
+    const cart = await Cart.findOne({ _id: cartId }).session(session);
+
+    if (!cart || cart.products.length === 0) {
+      req.flash('error', 'Giỏ hàng của bạn đang trống!');
+      res.redirect('/checkout');
+      await session.endSession();
+      return;
+    }
+
     const products = [];
     for (const product of cart.products) {
-      const productInfo = await Product.findOne({
-        _id: product.products_id,
-      }).select('price discountPercentage stock title');
+      const productInfo = await Product.findOne({ _id: product.products_id })
+        .select('price discountPercentage stock title')
+        .session(session);
 
       const result = await Product.updateOne(
         { _id: product.products_id, stock: { $gte: product.quantity } },
         { $inc: { stock: -product.quantity } }
-      );
+      ).session(session);
 
       if (result.modifiedCount === 0) {
-        req.flash(
-          'error',
-          `Sản phẩm "${productInfo.title}" không đủ số lượng trong kho!`
-        );
+        await session.abortTransaction();
+        await session.endSession();
+
+        req.flash('error', `Sản phẩm "${productInfo ? productInfo.title : 'Không xác định'}" không đủ số lượng trong kho!`);
         res.redirect('/checkout');
         return;
       }
@@ -53,10 +64,9 @@ module.exports.order = async (req, res) => {
       const objectProduct = {
         products_id: product.products_id,
         quantity: product.quantity,
+        price: productInfo.price,
+        discountPercentage: productInfo.discountPercentage
       };
-
-      objectProduct.price = productInfo.price;
-      objectProduct.discountPercentage = productInfo.discountPercentage;
 
       products.push(objectProduct);
     }
@@ -72,13 +82,20 @@ module.exports.order = async (req, res) => {
     }
 
     const order = new Order(orderInfo);
-    await order.save();
+    await order.save({ session });
 
-    await Cart.updateOne({ _id: cartId }, { products: [] });
+    await Cart.updateOne({ _id: cartId }, { products: [] }).session(session);
+
+    await session.commitTransaction();
+    await session.endSession();
+
     req.flash('success', 'Đặt hàng thành công');
     res.redirect(`/checkout/success/${order.id}`);
   } catch (error) {
-    req.flash('error', 'Đặt hàng thất bại');
+    await session.abortTransaction();
+    await session.endSession();
+
+    req.flash('error', 'Đặt hàng thất bại. Vui lòng thử lại!');
     res.redirect('/checkout');
   }
 };
